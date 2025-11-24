@@ -6,9 +6,10 @@ $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $name = trim($_POST['name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $phone = trim($_POST['phone'] ?? '');
+    # prevents against sql injections
+    $name = mysqli_real_escape_string($connection, trim($_POST['name'] ?? ''));
+    $email = mysqli_real_escape_string($connection, trim($_POST['email'] ?? ''));
+    $phone = mysqli_real_escape_string($connection, trim($_POST['phone'] ?? ''));
     $password = $_POST['password'] ?? '';
 
     if ($name === '') {
@@ -63,30 +64,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <h2>Registration Form</h2>
 
 <?php
+// this is for XSS prevention with
 if (!empty($errors)) {
     echo "<ul style='color:red;'>";
     foreach ($errors as $e) {
-        echo "<li>$e</li>";
+        echo "<li>" . htmlspecialchars($e, ENT_QUOTES, 'UTF-8') . "</li>";
     }
     echo "</ul>";
 }
 ?>
 
 <form method="post">
+
+    <!-- ------------------------------------------------------
+         6. INPUT RESTRICTIONS (HTML5 security)
+         ------------------------------------------------------- -->
+
     <label>Name:
-        <input name="name" required>
+        <input name="name" 
+               required
+               value="<?php echo isset($name) ? htmlspecialchars($name, ENT_QUOTES, 'UTF-8') : ''; ?>">
     </label><br>
 
     <label>Email:
-        <input name="email" type="email" required>
+        <input name="email" 
+               type="email" 
+               required
+               value="<?php echo isset($email) ? htmlspecialchars($email, ENT_QUOTES, 'UTF-8') : ''; ?>">
     </label><br>
 
     <label>Phone:
-        <input name="phone">
+        <input name="phone"
+               pattern="[0-9]+"
+               title="Phone number must contain only digits"
+               value="<?php echo isset($phone) ? htmlspecialchars($phone, ENT_QUOTES, 'UTF-8') : ''; ?>">
     </label><br>
 
     <label>Password:
-        <input name="password" type="password" required>
+        <input name="password" 
+               type="password" 
+               minlength="8"
+               required>
     </label><br>
 
     <button type="submit">Register</button>

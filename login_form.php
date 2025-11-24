@@ -7,30 +7,35 @@ $errors = [];
 // If form was submitted, process login
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $username = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
 
-    if ($username === '' || $password === '') {
-        $errors[] = "Please enter username and password.";
+    #we use mysqli_real_espace_string to 
+    $raw_name     = mysqli_real_escape_string($connection, $_POST['name'] ?? '');
+    $raw_password = mysqli_real_escape_string($connection, $_POST['password'] ?? '');
+
+
+    $name     = trim($raw_name);
+    $password = trim($raw_password);
+
+    if ($name === '' || $password === '') {
+        $errors[] = "Please enter name and password.";
     } else {
         // Secure lookup
         $stmt = $connection->prepare(
-            "SELECT id, username, password_hash, role FROM users WHERE username = ?"
+            "SELECT id, name, password_hash FROM users WHERE name = ?"
         );
-        $stmt->bind_param("s", $username);
+        $stmt->bind_param("s", $name);
         $stmt->execute();
 
         $result = $stmt->get_result();
         $user = $result->fetch_assoc();
 
         if (!$user || !password_verify($password, $user['password_hash'])) {
-            $errors[] = "Invalid username or password.";
+            $errors[] = "Invalid name or password.";
         } else {
             // Successful login
             session_regenerate_id(true);
             $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role'] = $user['role'];
+            $_SESSION['name'] = $user['name'];
 
             header("Location: dashboard.php");
             exit;
@@ -57,8 +62,8 @@ if (!empty($errors)) {
 
 <form method="post">
 
-<label>Username:
-    <input name="username" required>
+<label>name:
+    <input name="name" required>
 </label><br>
 
 <label>Password:

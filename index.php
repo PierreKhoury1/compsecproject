@@ -49,7 +49,7 @@ if ($success_message !== "") {
 <p>Please choose an option below:</p>
 
 <ul>
-    <li><a href="register.php">Register</a></li>
+    <li><a href="register_form.php">Register</a></li>
     <li><a href="login_form.php">Login</a></li>
 </ul>
 

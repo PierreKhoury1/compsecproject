@@ -2,8 +2,8 @@
 
 <?php
 $localserver = "localhost"; // this is the mysqli server (default for xampp)
-$username = "webuser"; // this is the default username prompeted for xammp
-$password = "password123"; // will leave this blank
+$username = "root"; // this is the default username prompeted for xammp
+$password = ""; // will leave this blank
 $database = "lovejoy"; //this is the database name
 
 
