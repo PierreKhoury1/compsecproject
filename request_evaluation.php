@@ -1,17 +1,10 @@
 <?php
 
-
-
-
-
-// this ensures secure cookies
-
+// Secure cookie settings
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_samesite', 'Strict');
 
 session_start();
-
-var_dump($_SESSION['user_id']);
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: login_form.php?error=Please login first");
@@ -20,34 +13,24 @@ if (!isset($_SESSION['user_id'])) {
 
 require 'configuration.php';
 
-
-//CSRF Token Generation
+// CSRF Token
 if (empty($_SESSION['csrf_token_eval'])) {
     $_SESSION['csrf_token_eval'] = bin2hex(random_bytes(32));
 }
-
-// this is to generate the csrf token
-if (empty($_SESSION['csrf_token_eval'])) {
-    $_SESSION['csrf_token_eval'] = bin2hex(random_bytes(32));
-}
-
-
 
 $errors = [];
 $success = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // validating csrf
+    // CSRF Validate
     if (!isset($_POST['csrf_token_eval']) ||
         !hash_equals($_SESSION['csrf_token_eval'], $_POST['csrf_token_eval'])) {
 
         die("<p style='color:red;'>Security error: Invalid CSRF token.</p>");
     }
 
-    // sanitize from the inputs below:
-
-    // Sanitize form inputs
+    // Sanitize inputs
     $details = trim($_POST['details'] ?? '');
     $contact_method = trim($_POST['contact_method'] ?? '');
 
@@ -55,60 +38,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "You must enter details of the item.";
     }
 
-    if ($contact_method !== "email" && $contact_method !== "phone") {
+    if (!in_array($contact_method, ['email', 'phone'])) {
         $errors[] = "Invalid contact option.";
     }
 
-
-    // this is to do security checks on the type of update
-
-
-    $allowed_types = ['image/jpeg', 'image/png']; //only jpeg and png are allowed
+    // File upload validation
+    $allowed_types = ['image/jpeg', 'image/png'];
 
     if ($_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+
         $file_tmp = $_FILES['photo']['tmp_name'];
         $file_type = mime_content_type($file_tmp);
 
-
-        // if the file type is not a jpeg or PNG it throws an error
         if (!in_array($file_type, $allowed_types)) {
             $errors[] = "Only JPEG and PNG images are allowed.";
         }
 
-        // assigns a unique filename
         $new_filename = uniqid("photo_", true) . ".jpg";
         $upload_path = "uploads/" . $new_filename;
 
-        } else {
+    } else {
         $errors[] = "Please upload a valid image file.";
-        }
+    }
 
-
-    // if there were NO ERRORS, then we save + move the file
-
-
+    // Only store if no errors
     if (empty($errors)) {
-        move_uploaded_file($file_tmp, $upload_path);
 
+        move_uploaded_file($file_tmp, $upload_path);
 
         $stmt = $connection->prepare(
             "INSERT INTO evaluations (user_id, details, contact_method, photo_path)
-            VALUES (?, ?, ?, ?)"
+             VALUES (?, ?, ?, ?)"
         );
 
         $stmt->bind_param("isss", $_SESSION['user_id'], $details, $contact_method, $new_filename);
         $stmt->execute();
         $stmt->close();
 
-
         $success = "Evaluation request submitted successfully!";
         unset($_SESSION['csrf_token_eval']);
     }
 }
-
 ?>
 <!DOCTYPE html>
 <html>
+<head>
+    <meta charset="UTF-8">
+    <title>Request Evaluation</title>
+
+    <!-- BOOTSTRAP -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        pre {
+            font-size: 10px;
+            line-height: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body style="background: linear-gradient(135deg, #d9f0ff, #a8d8ff);">
+
+<!-- ASCII Banner -->
+<div class="container mt-4">
 <pre>
           _____           _______                   _____                    _____                    _____                   _______               _____          
          /\    \         /::\    \                 /\    \                  /\    \                  /\    \                 /::\    \             |\    \         
@@ -121,63 +114,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   /:::/    /      /:::/____/   \:::\____\     |::|    |     _____    /::::::\   \:::\    \    _____   /::::::\    \   /:::/____/   \:::\____\      |::|___|______  
  /:::/    /      |:::|    |     |:::|    |    |::|    |    /\    \  /:::/\:::\   \:::\    \  /\    \ /:::/\:::\    \ |:::|    |     |:::|    |     /::::::::\    \ 
 /:::/____/       |:::|____|     |:::|    |    |::|    |   /::\____\/:::/__\:::\   \:::\____\/::\    /:::/  \:::\____\|:::|____|     |:::|    |    /::::::::::\____\
-\:::\    \        \:::\    \   /:::/    /     |::|    |  /:::/    /\:::\   \:::\   \::/    /\:::\  /:::/    \::/    / \:::\    \   /:::/    /    /:::/~~~~/~~      
- \:::\    \        \:::\    \ /:::/    /      |::|    | /:::/    /  \:::\   \:::\   \/____/  \:::\/:::/    / \/____/   \:::\    \ /:::/    /    /:::/    /         
+\:::\    \        \:::\    \   /:::/    /     |::|    |  /:::/    /\:::\   \:::\   \\::/    /\:::\  /:::/    \::/    / \:::\    \   /:::/    /    /:::/~~~~/~~      
+ \:::\    \        \:::\    \ /:::/    /      |::|    | /:::/    /  \:::\   \:::\   \/____/  \\:::\/:::/    / \/____/   \:::\    \ /:::/    /    /:::/    /         
   \:::\    \        \:::\    /:::/    /       |::|____|/:::/    /    \:::\   \:::\    \       \::::::/    /             \:::\    /:::/    /    /:::/    /          
    \:::\    \        \:::\__/:::/    /        |:::::::::::/    /      \:::\   \:::\____\       \::::/    /               \:::\__/:::/    /    /:::/    /           
     \:::\    \        \::::::::/    /         \::::::::::/____/        \:::\   \::/    /        \::/    /                 \::::::::/    /     \::/    /            
-     \:::\    \        \::::::/    /           ~~~~~~~~~~               \:::\   \/____/          \/____/                   \::::::/    /       \/____/             
+     \:::\    \        \::::::/    /           ~~~~~~~~~~               \:::\   \/____/          \/____/                   \::::::/    /       \/____/              
       \:::\    \        \::::/    /                                      \:::\    \                                         \::::/    /                            
        \:::\____\        \::/____/                                        \:::\____\                                         \::/____/                             
         \::/    /         ~~                                               \::/    /                                          ~~                                   
          \/____/                                                            \/____/                                                                                
-                                                                                                                                                                   
 </pre>
+</div>
 
+<!-- Form Card -->
+<div class="container mt-4">
+    <div class="card shadow p-4 mx-auto" style="max-width: 700px;">
 
-<body>
+        <h2 class="text-center mb-3">Request an Evaluation</h2>
 
-<h2>Request Evaluation</h2>
+        <?php if (!empty($errors)): ?>
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    <?php foreach ($errors as $e): ?>
+                        <li><?= htmlspecialchars($e) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
 
-<?php
-if (!empty($errors)) {
-    echo "<ul style='color:red;'>";
-    foreach ($errors as $e) {
-        echo "<li>" . htmlspecialchars($e, ENT_QUOTES, 'UTF-8') . "</li>";
-    }
-    echo "</ul>";
-}
+        <?php if ($success): ?>
+            <div class="alert alert-success fw-bold text-center">
+                <?= htmlspecialchars($success) ?>
+            </div>
+        <?php endif; ?>
 
-if ($success) {
-    echo "<p style='color:green; font-weight:bold;'>" . htmlspecialchars($success) . "</p>";
-}
-?>
+        <form method="post" enctype="multipart/form-data">
 
-<form method="post" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token_eval"
+                   value="<?= htmlspecialchars($_SESSION['csrf_token_eval']) ?>">
 
-    <input type="hidden" name="csrf_token_eval"
-           value="<?php echo htmlspecialchars($_SESSION['csrf_token_eval']); ?>">
+            <div class="mb-3">
+                <label class="form-label">Object Details</label>
+                <textarea class="form-control" name="details" rows="4" required></textarea>
+            </div>
 
-    <label>Object Details:<br>
-        <textarea name="details" required></textarea>
-    </label><br><br>
+            <div class="mb-3">
+                <label class="form-label">Preferred Contact Method</label>
+                <select class="form-select" name="contact_method" required>
+                    <option value="email">Email</option>
+                    <option value="phone">Phone</option>
+                </select>
+            </div>
 
-    <label>Preferred Contact:
-        <select name="contact_method" required>
-            <option value="email">Email</option>
-            <option value="phone">Phone</option>
-        </select>
-    </label><br><br>
+            <div class="mb-3">
+                <label class="form-label">Upload Photo (JPEG/PNG)</label>
+                <input type="file" class="form-control" name="photo" accept=".jpg,.jpeg,.png" required>
+            </div>
 
-    <label>Upload Photo (JPEG/PNG):
-        <input type="file" name="photo" accept=".jpg,.jpeg,.png" required>
-    </label><br><br>
+            <button type="submit" class="btn btn-primary w-100">Submit Request</button>
+        </form>
 
-    <button type="submit">Submit Request</button>
-</form>
+        <div class="text-center mt-3">
+            <a href="dashboard.php" class="btn btn-secondary">Back to Dashboard</a>
+        </div>
 
-<br>
-<a href="dashboard.php">Back to Dashboard</a>
+    </div>
+</div>
 
 </body>
 </html>

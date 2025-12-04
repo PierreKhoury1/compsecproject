@@ -8,6 +8,27 @@ if (isset($_GET['registered']) && $_GET['registered'] == 1) {
 <!DOCTYPE html>
 <html>
 
+<head>
+    <meta charset="UTF-8">
+    <title>Lovejoy Antique Evaluation - Home</title>
+
+    <!-- BOOTSTRAP CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        pre {
+            font-size: 10px;
+            line-height: 10px;
+            text-align: center;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body style="background: linear-gradient(135deg, #d9f0ff, #a8d8ff);">
+
+<!-- ASCII BANNER -->
+<div class="container mt-4">
 <pre>
           _____           _______                   _____                    _____                    _____                   _______               _____          
          /\    \         /::\    \                 /\    \                  /\    \                  /\    \                 /::\    \             |\    \         
@@ -25,33 +46,37 @@ if (isset($_GET['registered']) && $_GET['registered'] == 1) {
   \:::\    \        \:::\    /:::/    /       |::|____|/:::/    /    \:::\   \:::\    \       \::::::/    /             \:::\    /:::/    /    /:::/    /          
    \:::\    \        \:::\__/:::/    /        |:::::::::::/    /      \:::\   \:::\____\       \::::/    /               \:::\__/:::/    /    /:::/    /           
     \:::\    \        \::::::::/    /         \::::::::::/____/        \:::\   \::/    /        \::/    /                 \::::::::/    /     \::/    /            
-     \:::\    \        \::::::/    /           ~~~~~~~~~~               \:::\   \/____/          \/____/                   \::::::/    /       \/____/             
+     \:::\    \        \::::::/    /           ~~~~~~~~~~               \:::\   \/____/          \/____/                   \::::::/    /       \/____/              
       \:::\    \        \::::/    /                                      \:::\    \                                         \::::/    /                            
        \:::\____\        \::/____/                                        \:::\____\                                         \::/____/                             
         \::/    /         ~~                                               \::/    /                                          ~~                                   
          \/____/                                                            \/____/                                                                                
-                                                                                                                                                                   
 </pre>
+</div>
 
-<head>
-    <title>Lovejoy Antique Evaluation - Home</title>
-</head>
-<body>
+<!-- Main Content -->
+<div class="container mt-4">
 
-<h1>Welcome to Lovejoy's Antique Evaluation</h1>
+    <div class="card shadow p-4 mx-auto" style="max-width: 600px;">
 
-<?php
-if ($success_message !== "") {
-    echo "<p style='color:green; font-weight:bold;'>" . htmlspecialchars($success_message) . "</p>";
-}
-?>
+        <h1 class="text-center">Welcome to Lovejoy's Antique Evaluation</h1>
 
-<p>Please choose an option below:</p>
+        <?php if ($success_message !== ""): ?>
+            <div class="alert alert-success text-center fw-bold mt-3">
+                <?= htmlspecialchars($success_message); ?>
+            </div>
+        <?php endif; ?>
 
-<ul>
-    <li><a href="register_form.php">Register</a></li>
-    <li><a href="login_form.php">Login</a></li>
-</ul>
+        <p class="text-center mt-3">Please choose an option below:</p>
+
+        <div class="d-grid gap-3 mt-4">
+            <a href="register_form.php" class="btn btn-primary btn-lg">Register</a>
+            <a href="login_form.php" class="btn btn-secondary btn-lg">Login</a>
+        </div>
+
+    </div>
+
+</div>
 
 </body>
 </html>

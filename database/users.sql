@@ -7,7 +7,7 @@ START TRANSACTION;
 SET time_zone = "+00:00";
 
 -- --------------------------------------------------------
--- USERS TABLE
+-- USERS TABLE (updated with role column)
 -- --------------------------------------------------------
 
 CREATE TABLE `users` (
@@ -16,6 +16,11 @@ CREATE TABLE `users` (
   `email` VARCHAR(150) NOT NULL,
   `phone` VARCHAR(20) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
+  `role` ENUM('user','admin') NOT NULL DEFAULT 'user',
+
+  `failed_attempts` INT NOT NULL DEFAULT 0,
+  `last_failed_login` DATETIME DEFAULT NULL,
+
   `created_at` TIMESTAMP NOT NULL DEFAULT current_timestamp(),
 
   PRIMARY KEY (`id`),
@@ -24,7 +29,27 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
--- EVALUATIONS TABLE (Task 4)
+-- INSERT DEFAULT ADMIN ACCOUNT
+-- --------------------------------------------------------
+-- Default admin login:
+-- Username: Administrator
+-- Email: admin@lovejoy.com
+-- Password: Admin12345!
+
+INSERT INTO users (name, email, phone, password_hash, role)
+VALUES (
+    'Administrator',
+    'admin@lovejoy.com',
+    '0000000000',
+    '$2y$10$4xOcOGou1cVEy2vliSzRt.qzR2jiiWbeo4p7.QTYOJbtOvGmlEUFC',
+    'admin'
+);
+
+-- NOTE:
+-- The password above is the bcrypt hash of: AdminPassword123
+
+-- --------------------------------------------------------
+-- EVALUATIONS TABLE
 -- --------------------------------------------------------
 
 CREATE TABLE `evaluations` (
@@ -37,7 +62,6 @@ CREATE TABLE `evaluations` (
 
   PRIMARY KEY (`id`),
 
-  -- Foreign key ensures evaluation requests belong to valid users
   CONSTRAINT `fk_user`
     FOREIGN KEY (`user_id`)
     REFERENCES `users` (`id`)

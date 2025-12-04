@@ -1,0 +1,1254 @@
+<?php
+
+// Secure cookies
+ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_samesite', 'Strict');
+
+session_start();
+require 'configuration.php';
+
+// Require login
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login_form.php?error=Please login first");
+    exit;
+}
+
+// Require admin role
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+    die("<div class='alert alert-danger text-center mt-5 w-50 mx-auto'>
+            <h3>Access Denied</h3>
+            <p>This page is for administrators only.</p>
+        </div>");
+}
+
+// Fetch evaluation requests
+$query = "
+    SELECT e.id, e.details, e.contact_method, e.photo_path, e.created_at,
+           u.name, u.email, u.phone
+    FROM evaluations e
+    JOIN users u ON u.id = e.user_id
+    ORDER BY e.created_at DESC
+";
+
+$result = $connection->query($query);
+
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin – Evaluation Requests</title>
+
+    <!-- BOOTSTRAP -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        img.thumbnail-img {
+            max-width: 120px;
+            border-radius: 6px;
+        }
+        pre {
+            font-size: 10px;
+            line-height: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body style="background: linear-gradient(135deg, #d9f0ff, #a8d8ff);">
+
+<div class="container mt-4">
+
+    <!-- Header -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body text-center">
+            <h2 class="text-primary">Administrator Panel</h2>
+            <p class="text-muted">All Submitted Antique Evaluation Requests</p>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card shadow p-3">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Details</th>
+                        <th>Contact Method</th>
+                        <th>Photo</th>
+                        <th>Submitted At</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                <?php while ($row = $result->fetch_assoc()): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($row['id']) ?></td>
+                        <td><?= htmlspecialchars($row['name']) ?></td>
+                        <td><?= htmlspecialchars($row['email']) ?></td>
+                        <td><?= htmlspecialchars($row['phone']) ?></td>
+                        <td><?= nl2br(htmlspecialchars($row['details'])) ?></td>
+                        <td>
+                            <span class="badge bg-info text-dark">
+                                <?= htmlspecialchars($row['contact_method']) ?>
+                            </span>
+                        </td>
+                        <td>
+                            <?php if (!empty($row['photo_path'])): ?>
+                                <img src="uploads/<?= htmlspecialchars($row['photo_path']) ?>"
+                                     class="thumbnail-img"
+                                     alt="Uploaded Photo">
+                            <?php else: ?>
+                                <span class="text-muted">No Image</span>
+                            <?php endif; ?>
+                        </td>
+                        <td><?= htmlspecialchars($row['created_at']) ?></td>
+                    </tr>
+                <?php endwhile; ?>
+                </tbody>
+
+            </table>
+        </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="text-center mt-3">
+        <a href="dashboard.php" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+
+</div>
+
+</body>
+</html>
+
+
+<?php
+session_start();
+
+// Must have GD enabled to draw images
+if (!extension_loaded('gd')) {
+    header("Content-Type: text/plain");
+    echo "ERROR: PHP GD extension is not enabled.\n";
+    echo "To fix this, open php.ini and uncomment the line:\n";
+    echo "   extension=gd\n";
+    exit;
+}
+
+
+$width = 140;
+$height = 50;
+
+$image = imagecreatetruecolor($width, $height);
+
+// Colors
+$bg  = imagecolorallocate($image, 240, 240, 240);
+$fg  = imagecolorallocate($image, 20, 20, 20);
+$lineColor = imagecolorallocate($image, 180, 180, 180);
+
+// Fill background
+imagefilledrectangle($image, 0, 0, $width, $height, $bg);
+
+// Generate random code
+$captcha_code = substr(strtoupper(md5(random_bytes(8))), 0, 6);
+
+// Store for validation
+$_SESSION['captcha_code'] = $captcha_code;
+
+// Add noise lines
+for ($i = 0; $i < 5; $i++) {
+    imageline(
+        $image,
+        rand(0, $width), rand(0, $height),
+        rand(0, $width), rand(0, $height),
+        $lineColor
+    );
+}
+
+// Draw text
+$font_size = 5; // internal GD font
+imagestring($image, $font_size, 20, 15, $captcha_code, $fg);
+
+// Output as PNG
+header("Content-Type: image/png");
+imagepng($image);
+imagedestroy($image);
+?>
+
+
+
+
+<?php
+$localserver = "localhost"; // this is the mysqli server (default for xampp)
+$username = "root"; // this is the default username prompeted for xammp
+$password = ""; // will leave this blank
+$database = "lovejoy"; //this is the database name
+
+
+
+$connection = new mysqli($localserver, $username, $password, $database);
+
+if ($connection -> connect_error) {
+    die("Connection to '$database' failed: " . $connection-> connect_error);
+}
+
+echo "Connected successfully to $database!";
+
+?>
+
+
+
+<?php
+session_start();
+
+// User must be logged in to access this page
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php?error=Please login first");
+    exit;
+}
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+
+    <!-- BOOTSTRAP CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        pre {
+            font-size: 10px;
+            line-height: 10px;
+            overflow-x: auto;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body class="bg-light">
+
+<!-- ASCII Banner -->
+<div class="container mt-4">
+<pre>
+          _____           _______                   _____                    _____                    _____                   _______               _____          
+         /\    \         /::\    \                 /\    \                  /\    \                  /\    \                 /::\    \             |\    \         
+        /::\____\       /::::\    \               /::\____\                /::\    \                /::\    \               /::::\    \            |:\____\        
+       /:::/    /      /::::::\    \             /:::/    /               /::::\    \               \:::\    \             /::::::\    \           |::|   |        
+      /:::/    /      /::::::::\    \           /:::/    /               /::::::\    \               \:::\    \           /::::::::\    \          |::|   |        
+     /:::/    /      /:::/~~\:::\    \         /:::/    /               /:::/\:::\    \               \:::\    \         /:::/~~\:::\    \         |::|   |        
+    /:::/    /      /:::/    \:::\    \       /:::/____/               /:::/__\:::\    \               \:::\    \       /:::/    \:::\    \        |::|   |        
+   /:::/    /      /:::/    / \:::\    \      |::|    |               /::::\   \:::\    \              /::::\    \     /:::/    / \:::\    \       |::|   |        
+  /:::/    /      /:::/____/   \:::\____\     |::|    |     _____    /::::::\   \:::\    \    _____   /::::::\    \   /:::/____/   \:::\____\      |::|___|______  
+ /:::/    /      |:::|    |     |:::|    |    |::|    |    /\    \  /:::/\:::\   \:::\    \  /\    \ /:::/\:::\    \ |:::|    |     |:::|    |     /::::::::\    \ 
+/:::/____/       |:::|____|     |:::|    |    |::|    |   /::\____\/:::/__\:::\   \:::\____\/::\    /:::/  \:::\____\|:::|____|     |:::|    |    /::::::::::\____\
+\:::\    \        \:::\    \   /:::/    /     |::|    |  /:::/    /\:::\   \:::\   \::/    /\:::\  /:::/    \::/    / \:::\    \   /:::/    /    /:::/~~~~/~~      
+ \:::\    \        \:::\    \ /:::/    /      |::|    | /:::/    /  \:::\   \:::\   \/____/  \:::\/:::/    / \/____/   \:::\    \ /:::/    /    /:::/    /         
+  \:::\    \        \:::\    /:::/    /       |::|____|/:::/    /    \:::\   \:::\    \       \::::::/    /             \:::\    /:::/    /    /:::/    /          
+   \:::\    \        \:::\__/:::/    /        |:::::::::::/    /      \:::\   \:::\____\       \::::/    /               \:::\__/:::/    /    /:::/    /           
+    \:::\    \        \::::::::/    /         \::::::::::/____/        \:::\   \::/    /        \::/    /                 \::::::::/    /     \::/    /            
+     \:::\    \        \::::::/    /           ~~~~~~~~~~               \:::\   \/____/          \/____/                   \::::::/    /       \/____/              
+      \:::\    \        \::::/    /                                      \:::\    \                                         \::::/    /                            
+       \:::\____\        \::/____/                                        \:::\____\                                         \::/____/                             
+        \::/    /         ~~                                               \::/    /                                          ~~                                   
+         \/____/                                                            \/____/                                                                                
+</pre>
+</div>
+
+<!-- Bootstrap Content Card -->
+<div class="container mt-4">
+    <div class="card shadow p-4">
+
+        <h2 class="text-center mb-3">
+            Welcome, <?= htmlspecialchars($_SESSION['name']); ?>!
+        </h2>
+
+        <p class="text-center text-muted mb-4">You are logged in successfully.</p>
+
+        <div class="d-grid gap-3">
+
+            <a class="btn btn-primary" href="request_evaluation.php">
+                Request Evaluation
+            </a>
+
+            <?php if ($_SESSION['role'] === 'admin'): ?>
+                <a class="btn btn-danger fw-bold" href="admin_priveledges.php">
+                    View All Evaluation Requests (Admin)
+                </a>
+            <?php endif; ?>
+
+            <a class="btn btn-secondary" href="logout.php">
+                Logout
+            </a>
+
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>
+
+
+<?php
+// Secure session cookies
+ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_samesite', 'Strict');
+
+session_start();
+
+require 'configuration.php';
+
+$errors = [];
+$success = "";
+
+// Generate CSRF token
+if (empty($_SESSION['csrf_token_forgot'])) {
+    $_SESSION['csrf_token_forgot'] = bin2hex(random_bytes(32));
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    // Validate CSRF token
+    if (!isset($_POST['csrf_token_forgot']) ||
+        !hash_equals($_SESSION['csrf_token_forgot'], $_POST['csrf_token_forgot'])) {
+        die("<p style='color:red;'>Security error: Invalid CSRF token.</p>");
+    }
+
+    // Get and sanitize email
+    $email = trim($_POST['email'] ?? '');
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Please enter a valid email.";
+    }
+
+    if (empty($errors)) {
+
+        // Check if email exists in the system
+        $stmt = $connection->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows === 0) {
+            $errors[] = "No account found with that email.";
+        } else {
+            $user = $result->fetch_assoc();
+
+            // Create reset token
+            $token = bin2hex(random_bytes(32));
+            $expires = date("Y-m-d H:i:s", time() + 3600); // valid for 1 hour
+
+            // Save token in database
+            $stmt = $connection->prepare("
+                UPDATE users 
+                SET reset_token = ?, reset_expires = ?
+                WHERE id = ?
+            ");
+            $stmt->bind_param("ssi", $token, $expires, $user['id']);
+            $stmt->execute();
+
+            // Normally you would send an email here
+            // Instead, we display the reset link for coursework demonstration:
+
+            $reset_link = "http://localhost/reset_password.php?token=" . urlencode($token);
+
+            $success = "A password reset link has been generated.<br>
+                        Since email is disabled, here is your reset URL:<br><br>
+                        <a href='$reset_link'>$reset_link</a>";
+
+            unset($_SESSION['csrf_token_forgot']);
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Forgot Password</title>
+
+    <!-- BOOTSTRAP -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        pre { font-size: 10px; line-height: 10px; text-align: center; }
+    </style>
+</head>
+
+<body style="background: linear-gradient(135deg, #d9f0ff, #a8d8ff);">
+
+<div class="container mt-4">
+<pre>
+          _____           _______                   _____                    _____                    _____                   _______               _____          
+         /\    \         /::\    \                 /\    \                  /\    \                  /\    \                 /::\    \             |\    \         
+        /::\____\       /::::\    \               /::\____\                /::\    \                /::\    \               /::::\    \            |:\____\        
+       /:::/    /      /::::::\    \             /:::/    /               /::::\    \               \:::\    \             /::::::\    \           |::|   |        
+      /:::/    /      /::::::::\    \           /:::/    /               /::::::\    \               \:::\    \           /::::::::\    \          |::|   |        
+     /:::/    /      /:::/~~\:::\    \         /:::/    /               /:::/\:::\    \               \:::\    \         /:::/~~\:::\    \         |::|   |        
+    /:::/    /      /:::/    \:::\    \       /:::/____/               /:::/__\:::\    \               \:::\    \       /:::/    \:::\    \        |::|   |        
+   /:::/    /      /:::/    / \:::\    \      |::|    |               /::::\   \:::\    \              /::::\    \     /:::/    / \:::\    \       |::|   |        
+  /:::/    /      /:::/____/   \:::\____\     |::|    |     _____    /::::::\   \:::\    \    _____   /::::::\    \   /:::/____/   \:::\____\      |::|___|______  
+ /:::/    /      |:::|    |     |:::|    |    |::|    |    /\    \  /:::/\:::\   \:::\    \  /\    \ /:::/\:::\    \ |:::|    |     |:::|    |     /::::::::\    \ 
+/:::/____/       |:::|____|     |:::|    |    |::|    |   /::\____\/:::/__\:::\   \:::\____\/::\    /:::/  \:::\____\|:::|____|     |:::|    |    /::::::::::\____\
+\:::\    \        \:::\    \   /:::/    /     |::|    |  /:::/    /\:::\   \:::\   \::/    /\:::\  /:::/    \::/    / \:::\    \   /:::/    /    /:::/~~~~/~~      
+ \:::\    \        \:::\    \ /:::/    /      |::|    | /:::/    /  \:::\   \:::\   \/____/  \:::\/:::/    / \/____/   \:::\    \ /:::/    /    /:::/    /         
+  \:::\    \        \:::\    /:::/    /       |::|____|/:::/    /    \:::\   \:::\    \       \::::::/    /             \:::\    /:::/    /    /:::/    /          
+   \:::\    \        \:::\__/:::/    /        |:::::::::::/    /      \:::\   \:::\____\       \::::/    /               \:::\__/:::/    /    /:::/    /           
+    \:::\    \        \::::::::/    /         \::::::::::/____/        \:::\   \::/    /        \::/    /                 \::::::::/    /     \::/    /            
+     \:::\    \        \::::::/    /           ~~~~~~~~~~               \:::\   \/____/          \/____/                   \::::::/    /       \/____/              
+      \:::\    \        \::::/    /                                      \:::\    \                                         \::::/    /                            
+       \:::\____\        \::/____/                                        \:::\____\                                         \::/____/                             
+        \::/    /         ~~                                               \::/    /                                          ~~                                   
+         \/____/                                                            \/____/                                                                                
+</pre>
+</div>
+
+<div class="container mt-4">
+    <div class="card shadow p-4 mx-auto" style="max-width: 500px;">
+
+        <h3 class="text-center mb-3">Forgot Password</h3>
+
+        <?php if (!empty($errors)): ?>
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    <?php foreach ($errors as $e): ?>
+                        <li><?= htmlspecialchars($e) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($success): ?>
+            <div class="alert alert-success text-center">
+                <?= $success ?>
+            </div>
+        <?php else: ?>
+
+        <form method="post">
+
+            <input type="hidden" name="csrf_token_forgot"
+                   value="<?= htmlspecialchars($_SESSION['csrf_token_forgot']) ?>">
+
+            <div class="mb-3">
+                <label class="form-label">Enter your email address:</label>
+                <input name="email" type="email" class="form-control" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Send Reset Link</button>
+
+        </form>
+
+        <?php endif; ?>
+
+        <div class="text-center mt-3">
+            <a href="login_form.php" class="btn btn-secondary">Back to Login</a>
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>
+
+
+
+<?php
+
+$success_message = "";
+if (isset($_GET['registered']) && $_GET['registered'] == 1) {
+    $success_message = "Registration successful! You can now log in.";
+}
+?>
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Lovejoy Antique Evaluation - Home</title>
+
+    <!-- BOOTSTRAP CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        pre {
+            font-size: 10px;
+            line-height: 10px;
+            text-align: center;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body style="background: linear-gradient(135deg, #d9f0ff, #a8d8ff);">
+
+<!-- ASCII BANNER -->
+<div class="container mt-4">
+<pre>
+          _____           _______                   _____                    _____                    _____                   _______               _____          
+         /\    \         /::\    \                 /\    \                  /\    \                  /\    \                 /::\    \             |\    \         
+        /::\____\       /::::\    \               /::\____\                /::\    \                /::\    \               /::::\    \            |:\____\        
+       /:::/    /      /::::::\    \             /:::/    /               /::::\    \               \:::\    \             /::::::\    \           |::|   |        
+      /:::/    /      /::::::::\    \           /:::/    /               /::::::\    \               \:::\    \           /::::::::\    \          |::|   |        
+     /:::/    /      /:::/~~\:::\    \         /:::/    /               /:::/\:::\    \               \:::\    \         /:::/~~\:::\    \         |::|   |        
+    /:::/    /      /:::/    \:::\    \       /:::/____/               /:::/__\:::\    \               \:::\    \       /:::/    \:::\    \        |::|   |        
+   /:::/    /      /:::/    / \:::\    \      |::|    |               /::::\   \:::\    \              /::::\    \     /:::/    / \:::\    \       |::|   |        
+  /:::/    /      /:::/____/   \:::\____\     |::|    |     _____    /::::::\   \:::\    \    _____   /::::::\    \   /:::/____/   \:::\____\      |::|___|______  
+ /:::/    /      |:::|    |     |:::|    |    |::|    |    /\    \  /:::/\:::\   \:::\    \  /\    \ /:::/\:::\    \ |:::|    |     |:::|    |     /::::::::\    \ 
+/:::/____/       |:::|____|     |:::|    |    |::|    |   /::\____\/:::/__\:::\   \:::\____\/::\    /:::/  \:::\____\|:::|____|     |:::|    |    /::::::::::\____\
+\:::\    \        \:::\    \   /:::/    /     |::|    |  /:::/    /\:::\   \:::\   \::/    /\:::\  /:::/    \::/    / \:::\    \   /:::/    /    /:::/~~~~/~~      
+ \:::\    \        \:::\    \ /:::/    /      |::|    | /:::/    /  \:::\   \:::\   \/____/  \:::\/:::/    / \/____/   \:::\    \ /:::/    /    /:::/    /         
+  \:::\    \        \:::\    /:::/    /       |::|____|/:::/    /    \:::\   \:::\    \       \::::::/    /             \:::\    /:::/    /    /:::/    /          
+   \:::\    \        \:::\__/:::/    /        |:::::::::::/    /      \:::\   \:::\____\       \::::/    /               \:::\__/:::/    /    /:::/    /           
+    \:::\    \        \::::::::/    /         \::::::::::/____/        \:::\   \::/    /        \::/    /                 \::::::::/    /     \::/    /            
+     \:::\    \        \::::::/    /           ~~~~~~~~~~               \:::\   \/____/          \/____/                   \::::::/    /       \/____/              
+      \:::\    \        \::::/    /                                      \:::\    \                                         \::::/    /                            
+       \:::\____\        \::/____/                                        \:::\____\                                         \::/____/                             
+        \::/    /         ~~                                               \::/    /                                          ~~                                   
+         \/____/                                                            \/____/                                                                                
+</pre>
+</div>
+
+<!-- Main Content -->
+<div class="container mt-4">
+
+    <div class="card shadow p-4 mx-auto" style="max-width: 600px;">
+
+        <h1 class="text-center">Welcome to Lovejoy's Antique Evaluation</h1>
+
+        <?php if ($success_message !== ""): ?>
+            <div class="alert alert-success text-center fw-bold mt-3">
+                <?= htmlspecialchars($success_message); ?>
+            </div>
+        <?php endif; ?>
+
+        <p class="text-center mt-3">Please choose an option below:</p>
+
+        <div class="d-grid gap-3 mt-4">
+            <a href="register_form.php" class="btn btn-primary btn-lg">Register</a>
+            <a href="login_form.php" class="btn btn-secondary btn-lg">Login</a>
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>
+
+
+
+<?php
+// Start the session so we can store user login information
+session_start();
+
+// Include database connection
+require 'configuration.php';
+
+// Generate CSRF token (if not created yet)
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+// Array to store error messages
+$errors = [];
+
+// Anti brute force settings
+$MAX_ATTEMPTS = 5;
+$LOCKOUT_MINUTES = 60;
+
+// Check if the login form was submitted
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    /* ---------------------------
+       CSRF PROTECTION
+    ---------------------------- */
+    if (!isset($_POST['csrf_token']) ||
+        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token']))
+    {
+        die("Security error: Invalid CSRF token.");
+    }
+
+    /* ---------------------------
+       CAPTCHA VALIDATION
+    ---------------------------- */
+    if (!isset($_POST['captcha_input']) ||
+        strtoupper(trim($_POST['captcha_input'])) !== ($_SESSION['captcha_code'] ?? ''))
+    {
+        $errors[] = "Incorrect CAPTCHA. Please try again.";
+    }
+
+    // Prevent special characters from breaking SQL
+    $raw_name     = mysqli_real_escape_string($connection, $_POST['name'] ?? '');
+    $raw_password = mysqli_real_escape_string($connection, $_POST['password'] ?? '');
+
+    // Trim whitespace
+    $name     = trim($raw_name);
+    $password = trim($raw_password);
+
+    /* ---------------------------
+       INPUT VALIDATION
+    ---------------------------- */
+
+    if ($name === '' || $password === '') {
+        $errors[] = "Please enter name and password.";
+    }
+
+    if (!preg_match('/^[A-Za-z0-9_]{3,30}$/', $name)) {
+        $errors[] = "Username must be 3–30 characters and contain only letters, numbers, or underscore.";
+    }
+
+    if (strlen($password) < 8) {
+        $errors[] = "Password must be at least 8 characters long.";
+    }
+
+    /* STOP if validation failed */
+    if (empty($errors)) {
+
+        // Fetch user including security fields
+        $stmt = $connection->prepare(
+            "SELECT id, name, password_hash, role, failed_attempts, last_failed_login
+             FROM users 
+             WHERE name = ?"
+        );
+        $stmt->bind_param("s", $name);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
+
+        // If user exists, check for lockout
+        if ($user) {
+
+            if ($user['failed_attempts'] >= $MAX_ATTEMPTS) {
+
+                $lastFail = strtotime($user['last_failed_login']);
+                $unlockTime = $lastFail + ($LOCKOUT_MINUTES * 60);
+
+                if (time() < $unlockTime) {
+                    $remaining = ceil(($unlockTime - time()) / 60);
+                    $errors[] = "Account locked due to multiple failed attempts. Try again in $remaining minute(s).";
+                }
+            }
+        }
+
+        // Proceed only if no lockout errors
+        if (empty($errors)) {
+
+            // INVALID LOGIN
+            if (!$user || !password_verify($password, $user['password_hash'])) {
+
+                if ($user) {
+                    // Increment failed attempts
+                    $update = $connection->prepare(
+                        "UPDATE users
+                         SET failed_attempts = failed_attempts + 1,
+                             last_failed_login = NOW()
+                         WHERE id = ?"
+                    );
+                    $update->bind_param("i", $user['id']);
+                    $update->execute();
+                }
+
+                $errors[] = "Invalid name or password.";
+
+            } else {
+
+                // SUCCESSFUL LOGIN — RESET failures
+                $reset = $connection->prepare(
+                    "UPDATE users
+                     SET failed_attempts = 0,
+                         last_failed_login = NULL
+                     WHERE id = ?"
+                );
+                $reset->bind_param("i", $user['id']);
+                $reset->execute();
+
+                // Protect against session fixation
+                session_regenerate_id(true);
+
+                // Store session info
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['name']    = $user['name'];
+                $_SESSION['role']    = $user['role'];
+
+                header("Location: dashboard.php");
+                exit;
+            }
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+
+    <!-- BOOTSTRAP -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        pre {
+            font-size: 10px;
+            line-height: 10px;
+            overflow-x: auto;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body style="background: linear-gradient(135deg, #d9f0ff, #a8d8ff);">
+
+<!-- ASCII Banner -->
+<div class="container mt-4">
+<pre>
+          _____           _______                   _____                    _____                    _____                   _______               _____          
+         /\    \         /::\    \                 /\    \                  /\    \                  /\    \                 /::\    \             |\    \         
+        /::\____\       /::::\    \               /::\____\                /::\    \                /::\    \               /::::\    \            |:\____\        
+       /:::/    /      /::::::\    \             /:::/    /               /::::\    \               \:::\    \             /::::::\    \           |::|   |        
+      /:::/    /      /::::::::\    \           /:::/    /               /::::::\    \               \:::\    \           /::::::::\    \          |::|   |        
+     /:::/    /      /:::/~~\:::\    \         /:::/    /               /:::/\:::\    \               \:::\    \         /:::/~~\:::\    \         |::|   |        
+    /:::/    /      /:::/    \:::\    \       /:::/____/               /:::/__\:::\    \               \:::\    \       /:::/    \:::\    \        |::|   |        
+   /:::/    /      /:::/    / \:::\    \      |::|    |               /::::\   \:::\    \              /::::\    \     /:::/    / \:::\    \       |::|   |        
+  /:::/    /      /:::/____/   \:::\____\     |::|    |     _____    /::::::\   \:::\    \    _____   /::::::\    \   /:::/____/   \:::\____\      |::|___|______  
+ /:::/    /      |:::|    |     |:::|    |    |::|    |    /\    \  /:::/\:::\   \:::\    \  /\    \ /:::/\:::\    \ |:::|    |     |:::|    |     /::::::::\    \ 
+/:::/____/       |:::|____|     |:::|    |    |::|    |   /::\____\/:::/__\:::\   \:::\____\/::\    /:::/  \:::\____\|:::|____|     |:::|    |    /::::::::::\____\
+\:::\    \        \:::\    \   /:::/    /     |::|    |  /:::/    /\:::\   \:::\   \::/    /\:::\  /:::/    \::/    / \:::\    \   /:::/    /    /:::/~~~~/~~      
+ \:::\    \        \:::\    \ /:::/    /      |::|    | /:::/    /  \:::\   \:::\   \/____/  \:::\/:::/    / \/____/   \:::\    \ /:::/    /    /:::/    /         
+  \:::\    \        \:::\    /:::/    /       |::|____|/:::/    /    \:::\   \:::\    \       \::::::/    /             \:::\    /:::/    /    /:::/    /          
+   \:::\    \        \:::\__/:::/    /        |:::::::::::/    /      \:::\   \:::\____\       \::::/    /               \:::\__/:::/    /    /:::/    /           
+    \:::\    \        \::::::::/    /         \::::::::::/____/        \:::\   \::/    /        \::/    /                 \::::::::/    /     \::/    /            
+     \:::\    \        \::::::/    /           ~~~~~~~~~~               \:::\   \/____/          \/____/                   \::::::/    /       \/____/              
+      \:::\    \        \::::/    /                                      \:::\    \                                         \::::/    /                            
+       \:::\____\        \::/____/                                        \:::\____\                                         \::/____/                             
+        \::/    /         ~~                                               \::/    /                                          ~~                                   
+         \/____/                                                            \/____/                                                                                
+</pre>
+</div>
+
+<!-- Login Card -->
+<div class="container mt-4">
+    <div class="card shadow p-4 mx-auto" style="max-width: 420px;">
+
+        <h2 class="text-center mb-3">Login</h2>
+
+        <?php if (!empty($errors)): ?>
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    <?php foreach ($errors as $error): ?>
+                        <li><?= htmlspecialchars($error); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <form method="post">
+            <!-- CSRF Token -->
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token']; ?>">
+
+            <div class="mb-3">
+                <label class="form-label">Name:</label>
+                <input name="name" class="form-control" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password:</label>
+                <input name="password" type="password" class="form-control" required>
+            </div>
+
+            <!-- CAPTCHA -->
+            <div class="mb-3">
+                <label class="form-label">Captcha:</label>
+                <div class="d-flex align-items-center">
+                    <img src="captcha.php" alt="CAPTCHA Image" class="border me-3">
+                    <button type="button"
+                            onclick="this.previousElementSibling.src='captcha.php?'+Date.now()"
+                            class="btn btn-sm btn-outline-secondary">
+                        Refresh
+                    </button>
+                </div>
+                <input name="captcha_input" class="form-control mt-2" required>
+            </div>
+
+            <div class="mb-3 text-end">
+                <a href="forgot_password.php" class="text-decoration-none">Forgot Password?</a>
+            </div>
+
+            <button class="btn btn-primary w-100" type="submit">Login</button>
+
+            <a href="index.php" class="btn btn-outline-secondary w-100 mt-3">⬅ Back to main</a>
+
+        </form>
+    </div>
+</div>
+
+</body>
+</html>
+
+
+
+<?php
+
+// this is for session cookie hardening Before starting the session
+ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_samesite', 'Strict');
+ini_set('session.cookie_secure', 1);    // Cookie only sent over HTTPS
+
+
+//start the session
+session_start();
+
+// get rid of all the previous session variables
+$_SESSION = [];
+
+// Destory the sessions data on the server
+
+session_unset();     // clear session variables
+
+session_destroy();      // destory server side session file 
+
+// delete the sessions cookies in the browser
+if (ini_get("session.use_cookies")) {
+    $params = session_get_cookie_params();
+    setcookie(
+        session_name(), // name of the session cookie 
+        '',    // empty value
+        time() - 42000,     // expire in the past
+        $params["path"], 
+        $params["domain"],
+        $params["secure"], 
+        $params["httponly"]
+    );
+}
+
+// got to home page (login/register) page after logout
+header("Location: index.php?logout=1");
+exit;
+?>
+
+
+<?php
+
+// prevent Javascript from accessing the session cookie 
+ini_set('session.cookie_httponly', 1);
+
+// prevent cookies being sent in cross-site requests (CSRF protection)
+ini_set('session.cookie_samesite', 'Strict');
+
+//this will send cookies over https://
+ini_set('session.cookie_secure', 1);
+
+
+session_start(); 
+
+// Generate CSRF token if it does not exist
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+require 'configuration.php';
+
+$errors = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    // Validate CSRF token
+    if (
+        !isset($_POST['csrf_token']) ||
+        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
+    ) {
+        die("<p style='color:red;'>Security Error: Invalid CSRF token.</p>");
+    }
+
+    // Sanitize and validate inputs
+    $name  = mysqli_real_escape_string($connection, trim($_POST['name'] ?? ''));
+    $email = mysqli_real_escape_string($connection, trim($_POST['email'] ?? ''));
+    $phone = mysqli_real_escape_string($connection, trim($_POST['phone'] ?? ''));
+    $password = $_POST['password'] ?? '';
+
+    if ($name === '') $errors[] = "Name is required.";
+    if (strlen($name) < 3 || strlen($name) > 30) {
+        $errors[] = "Username must be between 3 and 30 characters.";
+    }
+
+    $phone = trim($phone);
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = "Valid email required.";
+    if ($phone === '') $errors[] = "Phone number is required.";
+
+    if (strlen($email) > 255) {
+    $errors[] = "Email is too long.";
+}
+
+    if (!preg_match('/^[A-Za-z0-9_\-]+$/', $name)) {
+        $errors[] = "Name may only contain letters, numbers, underscores, and hyphens.";
+    }
+
+    // Password policy
+    if ($password === '' || strlen($password) < 8) $errors[] = "Password must be at least 8 characters.";
+    if (!preg_match('/[A-Z]/', $password)) $errors[] = "Password must contain at least one uppercase letter.";
+    if (!preg_match('/[a-z]/', $password)) $errors[] = "Password must contain at least one lowercase letter.";
+    if (!preg_match('/[0-9]/', $password)) $errors[] = "Password must contain at least one number.";
+    if (!preg_match('/[\W]/', $password)) $errors[] = "Password must contain at least one special character.";
+
+
+    // check for duplicate usernames within the user database
+
+    $check_duplicate_user = $connection -> prepare(
+        "SELECT id FROM users WHERE name = ? LIMIT 1"
+    );
+
+    $check_duplicate_user-> bind_param("s", $name);
+
+    $check_duplicate_user-> execute();
+
+    $check_duplicate_user -> store_result();
+
+    if ($check_duplicate_user-> num_rows > 0){
+        $errors[] = "This username is already taken!";
+    }
+
+    $check_duplicate_user -> close();
+
+    // This will check for duplicate emails
+
+    $check_duplicate_email = $connection -> prepare(
+        "SELECT id FROM users WHERE email = ? LIMIT 1"
+    );
+
+    $check_duplicate_email-> bind_param("s", $email);
+
+    $check_duplicate_email -> execute();
+
+    $check_duplicate_email-> store_result();
+
+    if ($check_duplicate_email-> num_rows > 0){
+        $errors[] = "An account with this email already exists.";
+    }
+
+    $check_duplicate_email -> close();
+
+    if (empty($errors)) {
+
+        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+
+        $statement = $connection->prepare(
+            "INSERT INTO users (name, email, phone, password_hash)
+            VALUES (?, ?, ?, ?)"
+        );
+
+        $statement->bind_param("ssss", $name, $email, $phone, $hashed_password);
+
+        if ($statement->execute()) {
+            unset($_SESSION['csrf_token']);
+            header("Location: index.php?registered=1");
+            exit;
+        } else {
+            $errors[] = "Error: Could not register user.";
+        }
+
+        $statement->close();
+    }
+}
+?>
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Register</title>
+
+    <!-- BOOTSTRAP CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        pre {
+            font-size: 10px;
+            line-height: 10px;
+            overflow-x: auto;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body style="background: linear-gradient(135deg, #d9f0ff, #a8d8ff);">
+
+<!-- ASCII Banner -->
+<div class="container mt-4">
+<pre>
+          _____           _______                   _____                    _____                    _____                   _______               _____          
+         /\    \         /::\    \                 /\    \                  /\    \                  /\    \                 /::\    \             |\    \         
+        /::\____\       /::::\    \               /::\____\                /::\    \                /::\    \               /::::\    \            |:\____\        
+       /:::/    /      /::::::\    \             /:::/    /               /::::\    \               \:::\    \             /::::::\    \           |::|   |        
+      /:::/    /      /::::::::\    \           /:::/    /               /::::::\    \               \:::\    \           /::::::::\    \          |::|   |        
+     /:::/    /      /:::/~~\:::\    \         /:::/    /               /:::/\:::\    \               \:::\    \         /:::/~~\:::\    \         |::|   |        
+    /:::/    /      /:::/    \:::\    \       /:::/____/               /:::/__\:::\    \               \:::\    \       /:::/    \:::\    \        |::|   |        
+   /:::/    /      /:::/    / \:::\    \      |::|    |               /::::\   \:::\    \              /::::\    \     /:::/    / \:::\    \       |::|   |        
+  /:::/    /      /:::/____/   \:::\____\     |::|    |     _____    /::::::\   \:::\    \    _____   /::::::\    \   /:::/____/   \:::\____\      |::|___|______  
+ /:::/    /      |:::|    |     |:::|    |    |::|    |    /\    \  /:::/\:::\   \:::\    \  /\    \ /:::/\:::\    \ |:::|    |     |:::|    |     /::::::::\    \ 
+/:::/____/       |:::|____|     |:::|    |    |::|    |   /::\____\/:::/__\:::\   \:::\____\/::\    /:::/  \:::\____\|:::|____|     |:::|    |    /::::::::::\____\
+\:::\    \        \:::\    \   /:::/    /     |::|    |  /:::/    /\:::\   \:::\   \::/    /\:::\  /:::/    \::/    / \:::\    \   /:::/    /    /:::/~~~~/~~      
+ \:::\    \        \:::\    \ /:::/    /      |::|    | /:::/    /  \:::\   \:::\   \/____/  \:::\/:::/    / \/____/   \:::\    \ /:::/    /    /:::/    /         
+  \:::\    \        \:::\    /:::/    /       |::|____|/:::/    /    \:::\   \:::\    \       \::::::/    /             \:::\    /:::/    /    /:::/    /          
+   \:::\    \        \:::\__/:::/    /        |:::::::::::/    /      \:::\   \:::\____\       \::::/    /               \:::\__/:::/    /    /:::/    /           
+    \:::\    \        \::::::::/    /         \::::::::::/____/        \:::\   \::/    /        \::/    /                 \::::::::/    /     \::/    /            
+     \:::\    \        \::::::/    /           ~~~~~~~~~~               \:::\   \/____/          \/____/                   \::::::/    /       \/____/              
+      \:::\    \        \::::/    /                                      \:::\    \                                         \::::/    /                            
+       \:::\____\        \::/____/                                        \:::\____\                                         \::/____/                             
+        \::/    /         ~~                                               \::/    /                                          ~~                                   
+         \/____/                                                            \/____/                                                                                
+</pre>
+</div>
+
+<!-- Registration Card -->
+<div class="container mt-4">
+    <div class="card shadow p-4 mx-auto" style="max-width: 480px;">
+
+        <h2 class="text-center mb-3">Registration Form</h2>
+
+        <?php if (!empty($errors)): ?>
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    <?php foreach ($errors as $e): ?>
+                        <li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8'); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <form method="post">
+
+            <input type="hidden" name="csrf_token"
+                   value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
+
+            <div class="mb-3">
+                <label class="form-label">Name:</label>
+                <input name="name" class="form-control" required
+                       value="<?= isset($name) ? htmlspecialchars($name, ENT_QUOTES, 'UTF-8') : ''; ?>">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Email:</label>
+                <input name="email" type="email" class="form-control" required
+                       value="<?= isset($email) ? htmlspecialchars($email, ENT_QUOTES, 'UTF-8') : ''; ?>">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Phone:</label>
+                <input name="phone" class="form-control" required pattern="[0-9]+"
+                       title="Phone number must contain only digits"
+                       value="<?= isset($phone) ? htmlspecialchars($phone, ENT_QUOTES, 'UTF-8') : ''; ?>">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password:</label>
+                <input name="password" type="password" class="form-control" minlength="8" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Register</button>
+
+            <a href="index.php" class="btn btn-outline-secondary w-100 mt-3">⬅ Back to main</a>
+
+
+        </form>
+
+    </div>
+</div>
+
+</body>
+</html>
+
+
+
+<?php
+
+// Secure cookie settings
+ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_samesite', 'Strict');
+
+session_start();
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login_form.php?error=Please login first");
+    exit;
+}
+
+require 'configuration.php';
+
+// CSRF Token
+if (empty($_SESSION['csrf_token_eval'])) {
+    $_SESSION['csrf_token_eval'] = bin2hex(random_bytes(32));
+}
+
+$errors = [];
+$success = "";
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    // CSRF Validate
+    if (!isset($_POST['csrf_token_eval']) ||
+        !hash_equals($_SESSION['csrf_token_eval'], $_POST['csrf_token_eval'])) {
+
+        die("<p style='color:red;'>Security error: Invalid CSRF token.</p>");
+    }
+
+    // Sanitize inputs
+    $details = trim($_POST['details'] ?? '');
+    $contact_method = trim($_POST['contact_method'] ?? '');
+
+    if ($details === "") {
+        $errors[] = "You must enter details of the item.";
+    }
+
+    if (!in_array($contact_method, ['email', 'phone'])) {
+        $errors[] = "Invalid contact option.";
+    }
+
+    // File upload validation
+    $allowed_types = ['image/jpeg', 'image/png'];
+
+    if ($_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+
+        $file_tmp = $_FILES['photo']['tmp_name'];
+        $file_type = mime_content_type($file_tmp);
+
+        if (!in_array($file_type, $allowed_types)) {
+            $errors[] = "Only JPEG and PNG images are allowed.";
+        }
+
+        $new_filename = uniqid("photo_", true) . ".jpg";
+        $upload_path = "uploads/" . $new_filename;
+
+    } else {
+        $errors[] = "Please upload a valid image file.";
+    }
+
+    // Only store if no errors
+    if (empty($errors)) {
+
+        move_uploaded_file($file_tmp, $upload_path);
+
+        $stmt = $connection->prepare(
+            "INSERT INTO evaluations (user_id, details, contact_method, photo_path)
+             VALUES (?, ?, ?, ?)"
+        );
+
+        $stmt->bind_param("isss", $_SESSION['user_id'], $details, $contact_method, $new_filename);
+        $stmt->execute();
+        $stmt->close();
+
+        $success = "Evaluation request submitted successfully!";
+        unset($_SESSION['csrf_token_eval']);
+    }
+}
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Request Evaluation</title>
+
+    <!-- BOOTSTRAP -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        pre {
+            font-size: 10px;
+            line-height: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body style="background: linear-gradient(135deg, #d9f0ff, #a8d8ff);">
+
+<!-- ASCII Banner -->
+<div class="container mt-4">
+<pre>
+          _____           _______                   _____                    _____                    _____                   _______               _____          
+         /\    \         /::\    \                 /\    \                  /\    \                  /\    \                 /::\    \             |\    \         
+        /::\____\       /::::\    \               /::\____\                /::\    \                /::\    \               /::::\    \            |:\____\        
+       /:::/    /      /::::::\    \             /:::/    /               /::::\    \               \:::\    \             /::::::\    \           |::|   |        
+      /:::/    /      /::::::::\    \           /:::/    /               /::::::\    \               \:::\    \           /::::::::\    \          |::|   |        
+     /:::/    /      /:::/~~\:::\    \         /:::/    /               /:::/\:::\    \               \:::\    \         /:::/~~\:::\    \         |::|   |        
+    /:::/    /      /:::/    \:::\    \       /:::/____/               /:::/__\:::\    \               \:::\    \       /:::/    \:::\    \        |::|   |        
+   /:::/    /      /:::/    / \:::\    \      |::|    |               /::::\   \:::\    \              /::::\    \     /:::/    / \:::\    \       |::|   |        
+  /:::/    /      /:::/____/   \:::\____\     |::|    |     _____    /::::::\   \:::\    \    _____   /::::::\    \   /:::/____/   \:::\____\      |::|___|______  
+ /:::/    /      |:::|    |     |:::|    |    |::|    |    /\    \  /:::/\:::\   \:::\    \  /\    \ /:::/\:::\    \ |:::|    |     |:::|    |     /::::::::\    \ 
+/:::/____/       |:::|____|     |:::|    |    |::|    |   /::\____\/:::/__\:::\   \:::\____\/::\    /:::/  \:::\____\|:::|____|     |:::|    |    /::::::::::\____\
+\:::\    \        \:::\    \   /:::/    /     |::|    |  /:::/    /\:::\   \:::\   \\::/    /\:::\  /:::/    \::/    / \:::\    \   /:::/    /    /:::/~~~~/~~      
+ \:::\    \        \:::\    \ /:::/    /      |::|    | /:::/    /  \:::\   \:::\   \/____/  \\:::\/:::/    / \/____/   \:::\    \ /:::/    /    /:::/    /         
+  \:::\    \        \:::\    /:::/    /       |::|____|/:::/    /    \:::\   \:::\    \       \::::::/    /             \:::\    /:::/    /    /:::/    /          
+   \:::\    \        \:::\__/:::/    /        |:::::::::::/    /      \:::\   \:::\____\       \::::/    /               \:::\__/:::/    /    /:::/    /           
+    \:::\    \        \::::::::/    /         \::::::::::/____/        \:::\   \::/    /        \::/    /                 \::::::::/    /     \::/    /            
+     \:::\    \        \::::::/    /           ~~~~~~~~~~               \:::\   \/____/          \/____/                   \::::::/    /       \/____/              
+      \:::\    \        \::::/    /                                      \:::\    \                                         \::::/    /                            
+       \:::\____\        \::/____/                                        \:::\____\                                         \::/____/                             
+        \::/    /         ~~                                               \::/    /                                          ~~                                   
+         \/____/                                                            \/____/                                                                                
+</pre>
+</div>
+
+<!-- Form Card -->
+<div class="container mt-4">
+    <div class="card shadow p-4 mx-auto" style="max-width: 700px;">
+
+        <h2 class="text-center mb-3">Request an Evaluation</h2>
+
+        <?php if (!empty($errors)): ?>
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    <?php foreach ($errors as $e): ?>
+                        <li><?= htmlspecialchars($e) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($success): ?>
+            <div class="alert alert-success fw-bold text-center">
+                <?= htmlspecialchars($success) ?>
+            </div>
+        <?php endif; ?>
+
+        <form method="post" enctype="multipart/form-data">
+
+            <input type="hidden" name="csrf_token_eval"
+                   value="<?= htmlspecialchars($_SESSION['csrf_token_eval']) ?>">
+
+            <div class="mb-3">
+                <label class="form-label">Object Details</label>
+                <textarea class="form-control" name="details" rows="4" required></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Preferred Contact Method</label>
+                <select class="form-select" name="contact_method" required>
+                    <option value="email">Email</option>
+                    <option value="phone">Phone</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Upload Photo (JPEG/PNG)</label>
+                <input type="file" class="form-control" name="photo" accept=".jpg,.jpeg,.png" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Submit Request</button>
+        </form>
+
+        <div class="text-center mt-3">
+            <a href="dashboard.php" class="btn btn-secondary">Back to Dashboard</a>
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>
+
+
+
