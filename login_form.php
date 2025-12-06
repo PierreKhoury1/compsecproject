@@ -24,10 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
        CSRF PROTECTION
     ---------------------------- */
     if (!isset($_POST['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token']))
-    {
-        die("Security error: Invalid CSRF token.");
-    }
+        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])){
+        die("Security error: Invalid CSRF token.");}
 
     /* ---------------------------
        CAPTCHA VALIDATION
@@ -125,12 +123,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Protect against session fixation
                 session_regenerate_id(true);
-
                 // Store session info
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['name']    = $user['name'];
                 $_SESSION['role']    = $user['role'];
-
+ 
                 header("Location: dashboard.php");
                 exit;
             }

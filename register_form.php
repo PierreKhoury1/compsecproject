@@ -2,14 +2,10 @@
 
 // prevent Javascript from accessing the session cookie 
 ini_set('session.cookie_httponly', 1);
-
 // prevent cookies being sent in cross-site requests (CSRF protection)
 ini_set('session.cookie_samesite', 'Strict');
-
 //this will send cookies over https://
 ini_set('session.cookie_secure', 1);
-
-
 session_start(); 
 
 // Generate CSRF token if it does not exist
@@ -55,7 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Name may only contain letters, numbers, underscores, and hyphens.";
     }
 
-    // Password policy
+    // below we have listed the password policies
+
     if ($password === '' || strlen($password) < 8) $errors[] = "Password must be at least 8 characters.";
     if (!preg_match('/[A-Z]/', $password)) $errors[] = "Password must contain at least one uppercase letter.";
     if (!preg_match('/[a-z]/', $password)) $errors[] = "Password must contain at least one lowercase letter.";
@@ -103,6 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
+        // connection inserts hashed password and user information into the users table within Database 
         $statement = $connection->prepare(
             "INSERT INTO users (name, email, phone, password_hash)
             VALUES (?, ?, ?, ?)"
